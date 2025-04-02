@@ -13,6 +13,7 @@ async function tryWaitingForCaptcha(page, maxReloads = 1) {
     console.log(`Captcha not appearing. ${maxReloads} page reloads left`)
 
     if (maxReloads) {
+      await page.reload()
       return await tryWaitingForCaptcha(page, maxReloads - 1)
     }
     return false
