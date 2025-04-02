@@ -1,6 +1,6 @@
 import puppeteer from 'puppeteer-extra'
 import RecaptchaPlugin from 'puppeteer-extra-plugin-recaptcha';
-import { getCrowhandlerToken } from './browser-flow.js';
+import { getCrowhandlerToken } from './puppeteer-utils.js';
 
 puppeteer.use(RecaptchaPlugin({
   provider: { id: '2captcha', token: process.env.TWO_CAPTCHA_API_KEY },
