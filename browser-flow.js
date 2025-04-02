@@ -1,5 +1,3 @@
-import puppeteer from 'puppeteer-extra';
-
 async function waitForRedirection(page, hostname, timeout) {
   return await page.waitForResponse(res => {
     const url = new URL(res.url())
@@ -21,8 +19,8 @@ async function tryWaitingForCaptcha(page, maxReloads = 1) {
   }
 }
 
-async function getTokenFromCookies(browser) {
-  return (await browser.cookies()).find(c => c.name === 'crowdhandler')?.value
+async function getTokenFromCookies(page) {
+  return (await page.cookies()).find(c => c.name === 'crowdhandler')?.value
 }
 
 async function getTokenFromResponse(response) {
@@ -34,22 +32,12 @@ async function getTokenFromResponse(response) {
   return cookie.substring(cookie.indexOf('=') + 1, cookie.indexOf(';'))
 }
 
-export async function getCrowhandlerToken(eventUrl, puppeteerOptions) {
-  const browser = await puppeteer.launch(puppeteerOptions)
-  const page = await browser.newPage()
-
-  await page.goto(eventUrl.toString())
-
-  const hostname = eventUrl.hostname
-
+export async function getCrowhandlerToken(page, hostname) {
   try {
     await waitForRedirection(page, hostname, 10000)
   } catch(err) {
     console.log('Skipped the waiting room. Taking token from browser cookies...')
-    const token = await getTokenFromCookies(browser)
-
-    await browser.close()
-    return token
+    return await getTokenFromCookies(page)
   }
   console.log('Redirected to waiting room')
 
@@ -63,7 +51,5 @@ export async function getCrowhandlerToken(eventUrl, puppeteerOptions) {
   console.log('Captcha solved!')
 
   const response = await waitForRedirection(page, hostname, 30000)
-  const token = await getTokenFromResponse(response)
-  await browser.close()
-  return token
+  return await getTokenFromResponse(response)
 }
