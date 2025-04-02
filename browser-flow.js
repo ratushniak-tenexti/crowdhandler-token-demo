@@ -1,10 +1,4 @@
-import puppeteer from "puppeteer-extra";
-import RecaptchaPlugin from "puppeteer-extra-plugin-recaptcha";
-
-puppeteer.use(RecaptchaPlugin({
-  provider: { id: '2captcha', token: process.env.TWO_CAPTCHA_API_KEY },
-  visualFeedback: true,
-}))
+import puppeteer from 'puppeteer-extra';
 
 async function waitForRedirection(page, hostname, timeout) {
   return await page.waitForResponse(res => {
@@ -40,13 +34,13 @@ async function getTokenFromResponse(response) {
   return cookie.substring(cookie.indexOf('=') + 1, cookie.indexOf(';'))
 }
 
-export async function getCrowhandlerToken(eventContext, puppeteerOptions) {
+export async function getCrowhandlerToken(eventUrl, puppeteerOptions) {
   const browser = await puppeteer.launch(puppeteerOptions)
   const page = await browser.newPage()
 
   await page.goto(eventUrl.toString())
 
-  const hostname = eventContext.url.hostname
+  const hostname = eventUrl.hostname
 
   try {
     await waitForRedirection(page, hostname, 10000)
