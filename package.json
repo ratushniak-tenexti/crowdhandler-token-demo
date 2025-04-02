@@ -1,0 +1,13 @@
+{
+  "name": "captha-solving",
+  "version": "1.0.0",
+  "description": "Crowhandler token generation with captcha solving",
+  "main": "index.js",
+  "author": "Mykola Ratushniak",
+  "license": "ISC",
+  "type": "module",
+  "dependencies": {
+    "puppeteer-extra": "^3.3.6",
+    "puppeteer-extra-plugin-recaptcha": "^3.6.8"
+  }
+}
