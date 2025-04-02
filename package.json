@@ -6,6 +6,9 @@
   "author": "Mykola Ratushniak",
   "license": "ISC",
   "type": "module",
+  "scripts": {
+    "start": "node --env-file=.env index.js"
+  },
   "dependencies": {
     "puppeteer-extra": "^3.3.6",
     "puppeteer-extra-plugin-recaptcha": "^3.6.8"
