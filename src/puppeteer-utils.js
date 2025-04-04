@@ -1,56 +1,89 @@
-async function waitForRedirection(page, hostname, timeout) {
-  return await page.waitForResponse(res => {
-    const url = new URL(res.url())
-    return res.status() === 302 && url.hostname === hostname
-  }, { timeout })
-}
+const createCaptchaFrameInterceptor = resolve => async frame => {
+  const element = await frame.frameElement()
+  const nameOrId = await element.evaluate(f => f.name ?? f.id)
 
-async function tryWaitingForCaptcha(page, maxReloads = 1) {
-  try {
-    const frame = await page.waitForFrame(f => f.name().startsWith('a-'));
-    return !!await frame.waitForSelector('div.recaptcha-checkbox-border');
-  } catch (err) {
-    console.log(`Captcha not appearing. ${maxReloads} page reloads left`)
-
-    if (maxReloads) {
-      await page.reload()
-      return await tryWaitingForCaptcha(page, maxReloads - 1)
-    }
-    return false
+  if (nameOrId.startsWith('a-')) {
+    resolve(frame)
   }
 }
 
-async function getTokenFromCookies(page) {
-  return (await page.cookies()).find(c => c.name === 'crowdhandler')?.value
+const createEventPageResponseInterceptor = (eventUrl, resolve) => response => {
+  const isEventPage = response.url() === eventUrl.toString()
+
+  if (isEventPage && response.status() === 200) {
+    return resolve(response)
+  }
 }
 
-async function getTokenFromResponse(response) {
-  const cookie = response.headers()['set-cookie']
+const createWaitingRoomPageResponseInterceptor = (eventUrl, resolve) => response => {
+  const url = new URL(response.url())
+  const isWaitingRoom = url.hostname === eventUrl.hostname
+    && url.searchParams.has('ch-public-key')
 
-  if (!cookie || !cookie.includes('crowdhandler')) {
-    throw new Error('No crowdhandler cookie in set response headers')
+  if (isWaitingRoom && response.status() === 200) {
+    return resolve(response)
   }
-  return cookie.substring(cookie.indexOf('=') + 1, cookie.indexOf(';'))
 }
 
-export async function getCrowhandlerToken(page, hostname) {
-  try {
-    await waitForRedirection(page, hostname, 10000)
-  } catch(err) {
-    console.log('Skipped the waiting room. Taking token from browser cookies...')
-    return await getTokenFromCookies(page)
+function resolveEventPageLoadingObstacles(page, eventUrl, log) {
+  const { promise, resolve } = Promise.withResolvers()
+  let isEventPageResolved = false
+  let captchaAppearTimeout
+
+  const captchaInterceptor = createCaptchaFrameInterceptor(frame => {
+    log('Captcha frame detected!')
+    clearTimeout(captchaAppearTimeout)
+
+    const tasks = [
+      () => frame.waitForSelector('div.recaptcha-checkbox-border'),
+      () => page.findRecaptchas(),
+      ({ captchas }) => page.getRecaptchaSolutions(captchas),
+      ({ solutions }) => page.enterRecaptchaSolutions(solutions)
+    ]
+
+    tasks.reduce((result, task) =>
+      result.then(arg => isEventPageResolved ? Promise.reject() : task(arg)),
+      Promise.resolve()
+    ).catch(_ => log('Some captcha steps were skipped'))
+  })
+
+  const waitingRoomPageInterceptor = createWaitingRoomPageResponseInterceptor(eventUrl, _ => {
+    log('Waiting room page is loaded')
+
+    return new Promise(resolve => {
+      captchaAppearTimeout = setTimeout(() => {
+        log('Captcha not appearing for too long. Reloading page...')
+        page.reload().then(resolve)
+      }, 15000)
+    })
+  })
+
+  const eventPageInterceptor = createEventPageResponseInterceptor(eventUrl, response => {
+    log('Event page is loaded')
+
+    page.off('frameattached', captchaInterceptor)
+    page.off('response', eventPageInterceptor)
+    page.off('response', waitingRoomPageInterceptor)
+
+    isEventPageResolved = true
+    resolve(response)
+  })
+
+  page.on('response', eventPageInterceptor)
+  page.on('response', waitingRoomPageInterceptor)
+  page.on('frameattached', captchaInterceptor)
+
+  return promise
+}
+
+export async function gotoTessituraEvent(page, eventUrl, log = console.log) {
+  log('Loading event page...')
+  const gotoResponse = await page.goto(eventUrl)
+
+  if (gotoResponse.status() === 200) {
+    log('No obstacles to resolve')
+    return gotoResponse
   }
-  console.log('Redirected to waiting room')
-
-  const captchaExists = await tryWaitingForCaptcha(page)
-  if (!captchaExists) {
-    throw new Error('Failed to await captcha')
-  }
-
-  console.log('Solving captcha...')
-  await page.solveRecaptchas()
-  console.log('Captcha solved!')
-
-  const response = await waitForRedirection(page, hostname, 30000)
-  return await getTokenFromResponse(response)
+  log('Starting resolution')
+  return await resolveEventPageLoadingObstacles(page, eventUrl, log)
 }
