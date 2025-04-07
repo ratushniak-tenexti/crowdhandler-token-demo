@@ -1,8 +1,9 @@
 const createCaptchaFrameInterceptor = resolve => async frame => {
   const element = await frame.frameElement()
-  const nameOrId = await element.evaluate(f => f.name ?? f.id)
+  const name = await element.evaluate(f => f.name)
+  const isVisible = await element.isVisible()
 
-  if (nameOrId.startsWith('a-')) {
+  if (name.startsWith('a-') && isVisible) {
     resolve(frame)
   }
 }
