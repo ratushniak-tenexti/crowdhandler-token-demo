@@ -13,7 +13,7 @@ Requirements: `nodejs`, `pnpm`, Chromium/Chrome browser
 ## Current primaries support
 - [x] phillyorch
 - [ ] nyballet (only works in headful mode)
-- [ ] phillipscenter (issues to be investigated)
+- [x] phillipscenter
 - [x] desymphony
 - [x] bosymphony
 - [x] rtc
