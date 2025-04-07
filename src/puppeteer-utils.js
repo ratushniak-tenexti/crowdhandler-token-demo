@@ -64,6 +64,7 @@ function resolveEventPageLoadingObstacles(page, eventUrl, log) {
     page.off('frameattached', captchaInterceptor)
     page.off('response', eventPageInterceptor)
     page.off('response', waitingRoomPageInterceptor)
+    clearTimeout(captchaAppearTimeout)
 
     isEventPageResolved = true
     resolve(response)
